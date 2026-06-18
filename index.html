@@ -28,6 +28,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .screen{display:none;max-width:520px;margin:0 auto;padding:20px 16px}
 .screen.on{display:block}
 .screen.wide{max-width:720px}
+.screen.full{max-width:none;padding:0}
+
+/* ── STUDENT LAYOUT ── */
+.student-layout{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 140px)}
+.student-sidebar{padding:20px 16px;border-right:1px solid var(--border);background:var(--surf);position:sticky;top:0;height:calc(100vh - 140px);overflow-y:auto}
+.student-main{padding:20px 24px;overflow-y:auto}
+@media(max-width:800px){
+  .student-layout{grid-template-columns:1fr;min-height:auto}
+  .student-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+  .screen.full{padding:0}
+}
 
 /* ── CARDS ── */
 .card{background:var(--surf);border-radius:var(--r);box-shadow:var(--sh);padding:20px;margin-bottom:14px;border:1px solid var(--border)}
@@ -167,6 +178,12 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
   .teams-row{grid-template-columns:1fr 60px 1fr}
   .team-flag{font-size:24px}
 }
+/* 2-col match grid on wide screens */
+@media(min-width:900px){
+  #matches-container{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+  #matches-container .sec-div{grid-column:1/-1}
+  .match-card{margin-bottom:0}
+}
 </style>
 </head>
 <body>
@@ -205,69 +222,88 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
 </div>
 
 <!-- STUDENT SCREEN -->
-<div class="screen" id="s-student">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px">
-    <div>
-      <div style="font-size:20px;font-weight:900" id="s-welcome"></div>
-      <div style="font-size:11px;color:var(--text3);margin-top:1px" id="s-pts-lbl"></div>
+<div class="screen full" id="s-student">
+  <!-- Top bar -->
+  <div style="background:var(--surf);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.04)">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:17px;font-weight:900" id="s-welcome"></div>
+        <div style="font-size:11px;color:var(--text3)" id="s-pts-lbl"></div>
+      </div>
     </div>
-    <button onclick="logout()" style="background:var(--surf);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;cursor:pointer;color:var(--text2);font-weight:700">Out</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="nav" style="margin:0;box-shadow:none;border:1px solid var(--border)">
+        <button class="nav-btn on" id="nav-predict" onclick="showTab('predict',this)">⚽ Predict</button>
+        <button class="nav-btn" id="nav-standings" onclick="showTab('standings',this)">📊 Standings</button>
+        <button class="nav-btn" id="nav-results" onclick="showTab('results',this)">🎯 My Score</button>
+        <button class="nav-btn" id="nav-lb" onclick="showTab('lb',this)">🏆 Class</button>
+      </div>
+      <button onclick="logout()" style="background:var(--surf);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;cursor:pointer;color:var(--text2);font-weight:700;white-space:nowrap">Out</button>
+    </div>
   </div>
 
-  <div class="nav">
-    <button class="nav-btn on" id="nav-predict" onclick="showTab('predict',this)">⚽ Predict</button>
-    <button class="nav-btn" id="nav-standings" onclick="showTab('standings',this)">📊 Standings</button>
-    <button class="nav-btn" id="nav-results" onclick="showTab('results',this)">🎯 My Score</button>
-    <button class="nav-btn" id="nav-lb" onclick="showTab('lb',this)">🏆 Class</button>
-  </div>
+  <div class="student-layout">
+    <!-- LEFT SIDEBAR: progress + filters -->
+    <div class="student-sidebar">
+      <div class="prog-wrap" style="margin-bottom:14px">
+        <div class="prog-labels"><span id="prog-txt">0 / 72 predicted</span><span id="prog-pct">0%</span></div>
+        <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+        <div class="mini-stats">
+          <div class="mini-stat"><div class="mini-stat-n" id="ms-pts" style="color:var(--teal)">0</div><div class="mini-stat-l">Points</div></div>
+          <div class="mini-stat"><div class="mini-stat-n" id="ms-exact" style="color:var(--gold)">0</div><div class="mini-stat-l">🎯 Exact</div></div>
+          <div class="mini-stat"><div class="mini-stat-n" id="ms-correct" style="color:var(--green)">0</div><div class="mini-stat-l">✅ Correct</div></div>
+        </div>
+      </div>
 
-  <!-- ── PREDICT TAB ── -->
-  <div id="tab-predict">
-    <div class="prog-wrap">
-      <div class="prog-labels"><span id="prog-txt">0 / 72 predicted</span><span id="prog-pct">0%</span></div>
-      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
-      <div class="mini-stats">
-        <div class="mini-stat"><div class="mini-stat-n" id="ms-pts" style="color:var(--teal)">0</div><div class="mini-stat-l">Points</div></div>
-        <div class="mini-stat"><div class="mini-stat-n" id="ms-exact" style="color:var(--gold)">0</div><div class="mini-stat-l">🎯 Exact</div></div>
-        <div class="mini-stat"><div class="mini-stat-n" id="ms-correct" style="color:var(--green)">0</div><div class="mini-stat-l">✅ Correct</div></div>
+      <!-- Filters — only shown in predict tab -->
+      <div id="sidebar-predict-filters">
+        <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Filter by Group</div>
+        <div class="chips" id="group-filter" style="flex-direction:column;gap:4px"></div>
+        <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">Search Team</div>
+        <div class="search-wrap" style="margin-bottom:0">
+          <span class="search-icon">🔍</span>
+          <input id="team-search" placeholder="e.g. Australia…" oninput="filterByTeam(this.value)">
+        </div>
+      </div>
+
+      <!-- Standings group filter — shown in standings tab -->
+      <div id="sidebar-standings-filters" style="display:none">
+        <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Select Group</div>
+        <div class="chips" id="standings-group-filter" style="flex-direction:column;gap:4px"></div>
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="chips" id="group-filter"></div>
-
-    <!-- Team search -->
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input id="team-search" placeholder="Search a team e.g. Australia…" oninput="filterByTeam(this.value)">
-    </div>
-
-    <div id="matches-container"></div>
-  </div>
-
-  <!-- ── STANDINGS TAB ── -->
-  <div id="tab-standings" style="display:none">
-    <div class="chips" id="standings-group-filter"></div>
-    <div id="standings-container"></div>
-  </div>
-
-  <!-- ── MY SCORE TAB ── -->
-  <div id="tab-results" style="display:none">
-    <div class="card">
-      <div class="card-title">🎯 Your Results</div>
-      <div id="results-breakdown"></div>
-    </div>
-  </div>
-
-  <!-- ── CLASS LEADERBOARD TAB ── -->
-  <div id="tab-lb" style="display:none">
-    <div class="card">
-      <div class="card-title">🏆 Class Leaderboard</div>
-      <div style="display:flex;gap:8px;font-size:11px;color:var(--text3);margin-bottom:12px;flex-wrap:wrap">
-        <span>🎯 Exact score = <strong style="color:var(--gold)">3 pts</strong></span>
-        <span>✅ Correct result = <strong style="color:var(--green)">1 pt</strong></span>
+    <!-- RIGHT MAIN CONTENT -->
+    <div class="student-main">
+      <!-- ── PREDICT TAB ── -->
+      <div id="tab-predict">
+        <div id="matches-container"></div>
       </div>
-      <div id="lb-list"></div>
+
+      <!-- ── STANDINGS TAB ── -->
+      <div id="tab-standings" style="display:none">
+        <div id="standings-container"></div>
+      </div>
+
+      <!-- ── MY SCORE TAB ── -->
+      <div id="tab-results" style="display:none">
+        <div class="card">
+          <div class="card-title">🎯 Your Results</div>
+          <div id="results-breakdown"></div>
+        </div>
+      </div>
+
+      <!-- ── CLASS LEADERBOARD TAB ── -->
+      <div id="tab-lb" style="display:none">
+        <div class="card">
+          <div class="card-title">🏆 Class Leaderboard</div>
+          <div style="display:flex;gap:8px;font-size:11px;color:var(--text3);margin-bottom:12px;flex-wrap:wrap">
+            <span>🎯 Exact score = <strong style="color:var(--gold)">3 pts</strong></span>
+            <span>✅ Correct result = <strong style="color:var(--green)">1 pt</strong></span>
+          </div>
+          <div id="lb-list"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -505,10 +541,11 @@ function renderMatches(){
   const groups=[...new Set(state.matches.map(m=>m.group))];
   const chipArea=document.getElementById('group-filter');
   chipArea.innerHTML=
-    '<div class="chip on" onclick="filterGroup(\'all\',this)">All</div>'+
-    '<div class="chip" onclick="filterGroup(\'upcoming\',this)">⏰ Next</div>'+
-    '<div class="chip" onclick="filterGroup(\'played\',this)">✅ Done</div>'+
-    groups.map(g=>`<div class="chip" onclick="filterGroup('${g}',this)">${g.replace('Group ','')}</div>`).join('');
+    '<div class="chip on" style="display:block;text-align:left" onclick="filterGroup(\'all\',this)">All matches</div>'+
+    '<div class="chip" style="display:block;text-align:left" onclick="filterGroup(\'upcoming\',this)">⏰ Up Next</div>'+
+    '<div class="chip" style="display:block;text-align:left" onclick="filterGroup(\'played\',this)">✅ Played</div>'+
+    '<div style="font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px;padding:0 2px">By Group</div>'+
+    groups.map(g=>`<div class="chip" style="display:block;text-align:left" onclick="filterGroup('${g}',this)">${g}</div>`).join('');
 
   const preds=state.predictions[currentUser]||{};
   const results=state.results;
@@ -639,7 +676,7 @@ function filterByTeam(query){
 function renderStandings(){
   const groups=[...new Set(state.matches.map(m=>m.group))];
   const chipArea=document.getElementById('standings-group-filter');
-  chipArea.innerHTML=groups.map((g,i)=>`<div class="chip ${i===0?'on':''}" onclick="filterStandings('${g}',this)">${g.replace('Group ','Grp ')}</div>`).join('');
+  chipArea.innerHTML=groups.map((g,i)=>`<div class="chip ${i===0?'on':''}" style="display:block;text-align:left" onclick="filterStandings('${g}',this)">${g}</div>`).join('');
   renderStandingsGroup(groups[0]);
 }
 
@@ -697,6 +734,11 @@ function showTab(tab,el){
     document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
     document.getElementById('nav-'+t).classList.toggle('on',t===tab);
   });
+  // Toggle sidebar panels
+  const pf=document.getElementById('sidebar-predict-filters');
+  const sf=document.getElementById('sidebar-standings-filters');
+  if(pf)pf.style.display=tab==='predict'?'block':'none';
+  if(sf)sf.style.display=tab==='standings'?'block':'none';
   if(tab==='results')renderResults();
   if(tab==='lb')renderLeaderboard();
   if(tab==='standings')renderStandings();
