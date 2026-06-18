@@ -356,6 +356,72 @@ const STUDENTS=['Yamen Aleassa','Sophia Brodziak','Seth Crawford','Zayn Cristode
 
 const TEACHER_PASS='Bobtails2026';
 const KEY='pvs_wc26_v2';
+const SB_FN='/.netlify/functions/supabase';
+
+// ── Supabase helpers ─────────────────────────────
+async function sbReq(method,table,opts={}){
+  const{filter,body,prefer}=opts;
+  try{
+    const res=await fetch(SB_FN,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({method,table,filter,body,prefer}),
+    });
+    const t=await res.text();
+    if(!res.ok)throw new Error(t||'HTTP '+res.status);
+    return t?JSON.parse(t):null;
+  }catch(e){console.warn('sbReq',method,table,e.message);return null;}
+}
+const sbGet   =(t,f)  =>sbReq('GET',   t,{filter:f});
+const sbUpsert=(t,b)  =>sbReq('POST',  t,{body:b,prefer:'resolution=merge-duplicates,return=minimal'});
+const sbPatch =(t,f,b)=>sbReq('PATCH', t,{filter:f,body:b,prefer:'return=minimal'});
+
+// Save this student's predictions for one match
+async function dbSavePred(matchId,homeScore,awayScore){
+  if(!currentUser)return;
+  return sbUpsert('wc_predictions',{
+    id:currentUser+'_'+matchId,
+    student:currentUser,match_id:matchId,
+    home_score:homeScore,away_score:awayScore,
+    updated_at:new Date().toISOString()
+  });
+}
+
+// Load all predictions for this student from Supabase
+async function dbLoadPreds(){
+  if(!currentUser)return{};
+  const rows=await sbGet('wc_predictions','student=eq.'+encodeURIComponent(currentUser));
+  const out={};
+  (rows||[]).forEach(r=>{out[r.match_id]={homeScore:r.home_score,awayScore:r.away_score};});
+  return out;
+}
+
+// Save a match result (teacher only)
+async function dbSaveResult(matchId,homeScore,awayScore){
+  return sbUpsert('wc_results',{
+    id:matchId,match_id:matchId,
+    home_score:homeScore,away_score:awayScore,
+    updated_at:new Date().toISOString()
+  });
+}
+
+// Load all match results from Supabase
+async function dbLoadResults(){
+  const rows=await sbGet('wc_results','');
+  const out={};
+  (rows||[]).forEach(r=>{out[r.match_id]={homeScore:r.home_score,awayScore:r.away_score};});
+  return out;
+}
+
+// Load all predictions for the class leaderboard (teacher view + class tab)
+async function dbLoadAllPreds(){
+  const rows=await sbGet('wc_predictions','');
+  const out={};
+  (rows||[]).forEach(r=>{
+    if(!out[r.student])out[r.student]={};
+    out[r.student][r.match_id]={homeScore:r.home_score,awayScore:r.away_score};
+  });
+  return out;
+}
 
 // ══════════════════════════════════════════════
 //  FIXTURES
@@ -380,16 +446,16 @@ const DEFAULT_MATCHES=[
   {id:'m17',group:'Group C',home:'Scotland',homeFlag:'🏴󠁧󠁢󠁳󠁣󠁴󠁿',away:'Brazil',awayFlag:'🇧🇷',date:'2026-06-24',time:'6:00 PM ET',venue:'Miami'},
   {id:'m18',group:'Group C',home:'Morocco',homeFlag:'🇲🇦',away:'Haiti',awayFlag:'🇭🇹',date:'2026-06-24',time:'6:00 PM ET',venue:'Atlanta'},
   {id:'m19',group:'Group D',home:'USA',homeFlag:'🇺🇸',away:'Paraguay',awayFlag:'🇵🇾',date:'2026-06-12',time:'9:00 PM ET',venue:'Los Angeles'},
-  {id:'m20',group:'Group D',home:'Australia',homeFlag:'🦘',away:'Turkiye',awayFlag:'🇹🇷',date:'2026-06-14',time:'12:00 AM ET',venue:'Vancouver'},
+  {id:'m20',group:'Group D',home:'Australia',homeFlag:'🇦🇺',away:'Turkiye',awayFlag:'🇹🇷',date:'2026-06-14',time:'12:00 AM ET',venue:'Vancouver'},
   {id:'m21',group:'Group D',home:'Turkiye',homeFlag:'🇹🇷',away:'Paraguay',awayFlag:'🇵🇾',date:'2026-06-19',time:'12:00 AM ET',venue:'San Francisco'},
-  {id:'m22',group:'Group D',home:'USA',homeFlag:'🇺🇸',away:'Australia',awayFlag:'🦘',date:'2026-06-19',time:'3:00 PM ET',venue:'Seattle'},
+  {id:'m22',group:'Group D',home:'USA',homeFlag:'🇺🇸',away:'Australia',awayFlag:'🇦🇺',date:'2026-06-19',time:'3:00 PM ET',venue:'Seattle'},
   {id:'m23',group:'Group D',home:'Turkiye',homeFlag:'🇹🇷',away:'USA',awayFlag:'🇺🇸',date:'2026-06-25',time:'10:00 PM ET',venue:'Los Angeles'},
-  {id:'m24',group:'Group D',home:'Paraguay',homeFlag:'🇵🇾',away:'Australia',awayFlag:'🦘',date:'2026-06-25',time:'10:00 PM ET',venue:'San Francisco'},
-  {id:'m25',group:'Group E',home:'Germany',homeFlag:'🇩🇪',away:'Curacao',awayFlag:'🏳️',date:'2026-06-14',time:'1:00 PM ET',venue:'Houston'},
+  {id:'m24',group:'Group D',home:'Paraguay',homeFlag:'🇵🇾',away:'Australia',awayFlag:'🇦🇺',date:'2026-06-25',time:'10:00 PM ET',venue:'San Francisco'},
+  {id:'m25',group:'Group E',home:'Germany',homeFlag:'🇩🇪',away:'Curacao',awayFlag:'🇨🇼',date:'2026-06-14',time:'1:00 PM ET',venue:'Houston'},
   {id:'m26',group:'Group E',home:'Ivory Coast',homeFlag:'🇨🇮',away:'Ecuador',awayFlag:'🇪🇨',date:'2026-06-14',time:'7:00 PM ET',venue:'Philadelphia'},
   {id:'m27',group:'Group E',home:'Germany',homeFlag:'🇩🇪',away:'Ivory Coast',awayFlag:'🇨🇮',date:'2026-06-20',time:'4:00 PM ET',venue:'Toronto'},
-  {id:'m28',group:'Group E',home:'Ecuador',homeFlag:'🇪🇨',away:'Curacao',awayFlag:'🏳️',date:'2026-06-20',time:'8:00 PM ET',venue:'Kansas City'},
-  {id:'m29',group:'Group E',home:'Curacao',homeFlag:'🏳️',away:'Ivory Coast',awayFlag:'🇨🇮',date:'2026-06-25',time:'4:00 PM ET',venue:'Philadelphia'},
+  {id:'m28',group:'Group E',home:'Ecuador',homeFlag:'🇪🇨',away:'Curacao',awayFlag:'🇨🇼',date:'2026-06-20',time:'8:00 PM ET',venue:'Kansas City'},
+  {id:'m29',group:'Group E',home:'Curacao',homeFlag:'🇨🇼',away:'Ivory Coast',awayFlag:'🇨🇮',date:'2026-06-25',time:'4:00 PM ET',venue:'Philadelphia'},
   {id:'m30',group:'Group E',home:'Ecuador',homeFlag:'🇪🇨',away:'Germany',awayFlag:'🇩🇪',date:'2026-06-25',time:'4:00 PM ET',venue:'New York'},
   {id:'m31',group:'Group F',home:'Netherlands',homeFlag:'🇳🇱',away:'Japan',awayFlag:'🇯🇵',date:'2026-06-14',time:'4:00 PM ET',venue:'Dallas'},
   {id:'m32',group:'Group F',home:'Sweden',homeFlag:'🇸🇪',away:'Tunisia',awayFlag:'🇹🇳',date:'2026-06-14',time:'10:00 PM ET',venue:'Monterrey'},
@@ -457,14 +523,43 @@ let state={matches:[],predictions:{},results:{}};
 let currentUser=null,isTeacher=false;
 
 function loadState(){
-  try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(d)state=d;}catch(_){}
-  if(!state.matches||!state.matches.length)state.matches=DEFAULT_MATCHES;
-  if(!state.predictions)state.predictions={};
-  if(!state.results)state.results={};
-  // Apply known results without overwriting teacher entries
-  Object.entries(KNOWN_RESULTS).forEach(([id,s])=>{if(!state.results[id])state.results[id]=s;});
+  // Matches always come from DEFAULT_MATCHES (no need to persist)
+  state.matches=DEFAULT_MATCHES;
+  state.predictions={};
+  state.results={};
+  // Seed known results — Supabase results will override these once loaded
+  Object.entries(KNOWN_RESULTS).forEach(([id,s])=>{state.results[id]=s;});
+  // Also cache in localStorage for instant offline display
+  try{
+    const cached=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(cached){
+      if(cached.predictions)state.predictions=cached.predictions;
+      if(cached.results){Object.assign(state.results,cached.results);}
+    }
+  }catch(_){}
 }
-function saveState(){localStorage.setItem(KEY,JSON.stringify(state));}
+function saveLocalCache(){
+  try{localStorage.setItem(KEY,JSON.stringify({predictions:state.predictions,results:state.results}));}catch(_){}
+}
+
+// Called after student logs in — loads their predictions + all results from Supabase
+async function syncFromDB(){
+  const[preds,results]=await Promise.all([dbLoadPreds(),dbLoadResults()]);
+  state.predictions[currentUser]=preds;
+  // Merge DB results on top of known results
+  Object.assign(state.results,results);
+  saveLocalCache();
+  renderMatches();renderProgress();
+}
+
+// Called by teacher after logging in — loads all results + all predictions
+async function syncAllFromDB(){
+  const[allPreds,results]=await Promise.all([dbLoadAllPreds(),dbLoadResults()]);
+  state.predictions=allPreds;
+  Object.assign(state.results,results);
+  saveLocalCache();
+  renderTeacherMatches();renderTeacherLb();
+}
 
 // ══════════════════════════════════════════════
 //  SORT HELPERS
@@ -497,6 +592,8 @@ function studentLogin(){
   isTeacher=false;show('s-student');
   document.getElementById('s-welcome').textContent='Hey '+currentUser.split(' ')[0]+' 👋';
   renderStudentView();
+  // Load this student's predictions + results from Supabase
+  syncFromDB().catch(()=>{});
 }
 function teacherLogin(){
   if(document.getElementById('t-pass').value!==TEACHER_PASS){
@@ -504,6 +601,7 @@ function teacherLogin(){
   }
   document.getElementById('t-err').style.display='none';
   isTeacher=true;show('s-teacher');renderTeacherView();
+  syncAllFromDB().catch(()=>{});
 }
 function logout(){
   currentUser=null;isTeacher=false;
@@ -625,16 +723,14 @@ function renderMatches(){
 }
 
 function savePred(matchId){
-  // Check if match is already played — if so, block changes
-  if(state.results[matchId]){showToast('🔒 This match is already played!');
-    const hEl=document.getElementById('h-'+matchId);const aEl=document.getElementById('a-'+matchId);
-    if(hEl)hEl.disabled=true;if(aEl)aEl.disabled=true;return;}
+  if(state.results[matchId]){showToast('🔒 Match already played — prediction locked');return;}
   const h=parseInt(document.getElementById('h-'+matchId)?.value);
   const a=parseInt(document.getElementById('a-'+matchId)?.value);
   if(isNaN(h)||isNaN(a)||h<0||a<0)return;
   if(!state.predictions[currentUser])state.predictions[currentUser]={};
   state.predictions[currentUser][matchId]={homeScore:h,awayScore:a};
-  saveState();
+  saveLocalCache();
+  dbSavePred(matchId,h,a).catch(()=>{});
   const card=document.getElementById('card-'+matchId);
   if(card){card.style.borderLeftColor='var(--teal)';
     const pill=card.querySelector('.match-status-pill');
@@ -787,7 +883,13 @@ function calcPoints(name){
   return{total,exact,correct};
 }
 
-function renderLeaderboard(){
+async function renderLeaderboard(){
+  // Load all students' predictions from Supabase for accurate class leaderboard
+  try{
+    const allPreds=await dbLoadAllPreds();
+    Object.assign(state.predictions,allPreds);
+    saveLocalCache();
+  }catch(_){}
   const rows=STUDENTS.map(n=>({name:n,...calcPoints(n)})).sort((a,b)=>b.total-a.total||b.exact-a.exact);
   const medals=['🥇','🥈','🥉'];
   document.getElementById('lb-list').innerHTML=rows.map((r,i)=>{
@@ -818,18 +920,126 @@ function renderTeacherMatches(){
   const sorted=getSorted();
   document.getElementById('teacher-matches').innerHTML=sorted.map(m=>{
     const r=state.results[m.id]||{};
-    return`<div class="teacher-match">
-      <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${m.group} · ${m.date}</div>
-      <div style="font-size:13px;font-weight:700">${m.homeFlag} ${m.home} <span style="color:var(--text3)">vs</span> ${m.awayFlag} ${m.away}</div>
-      <div class="t-score-row">
-        <input class="score-input" type="number" min="0" max="20" id="tr-h-${m.id}" value="${r.homeScore??''}" placeholder="0">
-        <div class="pred-dash" style="text-align:center">–</div>
-        <input class="score-input" type="number" min="0" max="20" id="tr-a-${m.id}" value="${r.awayScore??''}" placeholder="0">
-        <button class="save-btn" onclick="saveResult('${m.id}')">💾 Save</button>
+    const preds=getAllPredsForMatch(m.id);
+    const predCount=preds.length;
+    const totalStudents=STUDENTS.length;
+    return`<div class="teacher-match" id="tm-${m.id}">
+      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleMatchPreds('${m.id}')">
+        <div>
+          <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${m.group} · ${m.date} · ${m.time||''}</div>
+          <div style="font-size:14px;font-weight:800">${m.homeFlag} ${m.home} <span style="color:var(--text3);font-weight:400">vs</span> ${m.awayFlag} ${m.away}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span style="font-size:11px;font-weight:700;color:${predCount===totalStudents?'var(--green)':'var(--gold)'}">${predCount}/${totalStudents} preds</span>
+          ${r.homeScore!==undefined?`<span style="background:var(--green);color:#fff;font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px">FT ${r.homeScore}–${r.awayScore}</span>`:''}
+          <span style="font-size:16px;color:var(--text3);transition:transform .2s" id="chevron-${m.id}">▼</span>
+        </div>
       </div>
-      ${r.homeScore!==undefined?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:4px">✅ ${r.homeScore}–${r.awayScore} saved</div>`:''}
+
+      <!-- Score entry row -->
+      <div class="t-score-row" style="margin-top:10px">
+        <input class="score-input" type="number" min="0" max="20" id="tr-h-${m.id}" value="${r.homeScore??''}" placeholder="0" style="font-size:16px;padding:6px">
+        <div class="pred-dash" style="text-align:center">–</div>
+        <input class="score-input" type="number" min="0" max="20" id="tr-a-${m.id}" value="${r.awayScore??''}" placeholder="0" style="font-size:16px;padding:6px">
+        <button class="save-btn" onclick="saveResult('${m.id}');event.stopPropagation()">💾 Save</button>
+      </div>
+
+      <!-- Predictions breakdown — hidden by default -->
+      <div id="preds-panel-${m.id}" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        ${renderMatchPredPanel(m)}
+      </div>
     </div>`;
   }).join('');
+}
+
+function getAllPredsForMatch(matchId){
+  const out=[];
+  STUDENTS.forEach(name=>{
+    const p=(state.predictions[name]||{})[matchId];
+    if(p&&p.homeScore!==undefined)out.push({name,homeScore:p.homeScore,awayScore:p.awayScore});
+  });
+  return out;
+}
+
+function renderMatchPredPanel(m){
+  const preds=getAllPredsForMatch(m.id);
+  const r=state.results[m.id];
+  const unpredicted=STUDENTS.filter(n=>!((state.predictions[n]||{})[m.id]));
+
+  if(!preds.length)return'<div style="color:var(--text3);font-size:12px;padding:4px 0">No predictions yet.</div>';
+
+  // Tally predictions for a mini bar chart
+  const tally={home:0,draw:0,away:0};
+  preds.forEach(p=>{
+    if(p.homeScore>p.awayScore)tally.home++;
+    else if(p.homeScore<p.awayScore)tally.away++;
+    else tally.draw++;
+  });
+  const total=preds.length||1;
+  const barHtml=`<div style="margin-bottom:12px">
+    <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Prediction split (${preds.length} students)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
+      <div style="background:var(--blue2);border-radius:8px;padding:8px 4px">
+        <div style="font-size:20px;font-weight:900;color:var(--blue)">${tally.home}</div>
+        <div style="font-size:10px;color:var(--blue);font-weight:700">${m.homeFlag} ${m.home} win</div>
+      </div>
+      <div style="background:var(--gold2);border-radius:8px;padding:8px 4px">
+        <div style="font-size:20px;font-weight:900;color:var(--gold)">${tally.draw}</div>
+        <div style="font-size:10px;color:var(--gold);font-weight:700">Draw</div>
+      </div>
+      <div style="background:var(--red2);border-radius:8px;padding:8px 4px">
+        <div style="font-size:20px;font-weight:900;color:var(--red)">${tally.away}</div>
+        <div style="font-size:10px;color:var(--red);font-weight:700">${m.awayFlag} ${m.away} win</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Group predictions by score
+  const scoreGroups={};
+  preds.forEach(p=>{
+    const key=p.homeScore+'-'+p.awayScore;
+    if(!scoreGroups[key])scoreGroups[key]={homeScore:p.homeScore,awayScore:p.awayScore,students:[]};
+    scoreGroups[key].students.push(p.name);
+  });
+
+  const groupedRows=Object.values(scoreGroups)
+    .sort((a,b)=>b.students.length-a.students.length)
+    .map(g=>{
+      let pts='',rowStyle='';
+      if(r){
+        const exact=g.homeScore===r.homeScore&&g.awayScore===r.awayScore;
+        const myW=g.homeScore>g.awayScore?'h':g.homeScore<g.awayScore?'a':'d';
+        const rW=r.homeScore>r.awayScore?'h':r.homeScore<r.awayScore?'a':'d';
+        const correct=myW===rW;
+        if(exact){pts='🎯 +3pts';rowStyle='background:#fef9c3;';}
+        else if(correct){pts='✅ +1pt';rowStyle='background:var(--green2);';}
+        else{pts='❌ 0pts';rowStyle='background:var(--red2);';}
+      }
+      return`<div style="${rowStyle}border-radius:8px;padding:8px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+        <div style="font-size:18px;font-weight:900;min-width:48px;text-align:center;background:rgba(0,0,0,.06);border-radius:6px;padding:3px 6px">${g.homeScore}–${g.awayScore}</div>
+        <div style="flex:1;font-size:12px;color:var(--text2)">${g.students.join(', ')}</div>
+        ${pts?`<div style="font-size:11px;font-weight:800;white-space:nowrap">${pts}</div>`:''}
+      </div>`;
+    }).join('');
+
+  const missedHtml=unpredicted.length
+    ?`<div style="margin-top:8px;font-size:11px;color:var(--text3)"><strong>No prediction:</strong> ${unpredicted.join(', ')}</div>`:'';
+
+  return barHtml+`<div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Individual predictions</div>`+groupedRows+missedHtml;
+}
+
+function toggleMatchPreds(matchId){
+  const panel=document.getElementById('preds-panel-'+matchId);
+  const chevron=document.getElementById('chevron-'+matchId);
+  if(!panel)return;
+  const open=panel.style.display==='none';
+  panel.style.display=open?'block':'none';
+  if(chevron)chevron.style.transform=open?'rotate(180deg)':'';
+  // Reload predictions from DB when opening
+  if(open){
+    const m=state.matches.find(x=>x.id===matchId);
+    if(m)panel.innerHTML=renderMatchPredPanel(m);
+  }
 }
 
 function saveResult(mid){
@@ -837,9 +1047,10 @@ function saveResult(mid){
   const a=parseInt(document.getElementById('tr-a-'+mid).value);
   if(isNaN(h)||isNaN(a)||h<0||a<0){showToast('Enter valid scores first!');return;}
   state.results[mid]={homeScore:h,awayScore:a};
-  saveState();
+  saveLocalCache();
+  // Save to Supabase so all students see the result immediately
+  dbSaveResult(mid,h,a).then(()=>showToast('✅ Score saved for everyone!')).catch(()=>showToast('⚠️ Saved locally — check connection'));
   renderTeacherMatches();renderTeacherLb();
-  showToast('Score saved! ⚽');
 }
 
 function renderTeacherLb(){
