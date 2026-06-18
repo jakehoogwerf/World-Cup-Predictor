@@ -172,6 +172,21 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
 /* ── SAVE BTN ── */
 .save-btn{padding:8px 16px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s}
 .save-btn:hover{background:#0f766e}
+/* ── BRACKET ── */
+.bracket-round-title{font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;padding:6px 2px}
+.bracket-match{background:var(--surf);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:grid;grid-template-columns:1fr 60px 1fr;align-items:center;gap:8px;cursor:pointer;transition:all .15s}
+.bracket-match:hover{box-shadow:var(--sh-lg);transform:translateY(-1px);border-color:var(--teal)}
+.bracket-match.picked{border-color:var(--teal);background:linear-gradient(135deg,#f0fdfa,var(--surf))}
+.bracket-match.result-correct{border-color:var(--green)!important;background:linear-gradient(135deg,#f0fdf4,var(--surf))}
+.bracket-match.result-wrong{border-color:var(--red)!important}
+.bracket-team{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.bracket-center{text-align:center}
+.bracket-pred{font-size:14px;font-weight:900;color:var(--teal)}
+.bracket-result{font-size:14px;font-weight:900;color:var(--navy)}
+/* ── PROJECTOR ── */
+.proj-lb-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:12px;margin-bottom:6px;background:rgba(255,255,255,.07)}
+.proj-lb-row.top3{background:rgba(255,255,255,.14);font-size:15px}
+.proj-match-card{background:rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;margin-bottom:8px}
 
 @media(max-width:400px){
   .student-grid{grid-template-columns:1fr}
@@ -234,17 +249,29 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
     <div style="display:flex;align-items:center;gap:8px">
       <div class="nav" style="margin:0;box-shadow:none;border:1px solid var(--border)">
         <button class="nav-btn on" id="nav-predict" onclick="showTab('predict',this)">⚽ Predict</button>
+        <button class="nav-btn" id="nav-bracket" onclick="showTab('bracket',this)">🏆 Bracket</button>
         <button class="nav-btn" id="nav-standings" onclick="showTab('standings',this)">📊 Standings</button>
         <button class="nav-btn" id="nav-results" onclick="showTab('results',this)">🎯 My Score</button>
-        <button class="nav-btn" id="nav-lb" onclick="showTab('lb',this)">🏆 Class</button>
+        <button class="nav-btn" id="nav-lb" onclick="showTab('lb',this)">👥 Class</button>
       </div>
       <button onclick="logout()" style="background:var(--surf);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;cursor:pointer;color:var(--text2);font-weight:700;white-space:nowrap">Out</button>
     </div>
   </div>
 
   <div class="student-layout">
-    <!-- LEFT SIDEBAR: progress + filters -->
+    <!-- LEFT SIDEBAR: progress + filters + countdown -->
     <div class="student-sidebar">
+      <!-- Live countdown to next match -->
+      <div id="countdown-wrap" style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:none">
+        <div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">⏰ Next Match</div>
+        <div id="countdown-match" style="font-size:12px;font-weight:700;color:#fff;margin-bottom:8px"></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center" id="countdown-timer">
+          <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:6px 2px"><div id="cd-d" style="font-size:20px;font-weight:900;color:#fff;line-height:1">0</div><div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-top:2px">Days</div></div>
+          <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:6px 2px"><div id="cd-h" style="font-size:20px;font-weight:900;color:#fff;line-height:1">0</div><div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-top:2px">Hrs</div></div>
+          <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:6px 2px"><div id="cd-m" style="font-size:20px;font-weight:900;color:#fff;line-height:1">0</div><div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-top:2px">Min</div></div>
+          <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:6px 2px"><div id="cd-s" style="font-size:20px;font-weight:900;color:#fff;line-height:1">0</div><div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-top:2px">Sec</div></div>
+        </div>
+      </div>
       <div class="prog-wrap" style="margin-bottom:14px">
         <div class="prog-labels"><span id="prog-txt">0 / 72 predicted</span><span id="prog-pct">0%</span></div>
         <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
@@ -275,6 +302,11 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
 
     <!-- RIGHT MAIN CONTENT -->
     <div class="student-main">
+      <!-- ── BRACKET TAB ── -->
+      <div id="tab-bracket" style="display:none">
+        <div id="bracket-container"></div>
+      </div>
+
       <!-- ── PREDICT TAB ── -->
       <div id="tab-predict">
         <div id="matches-container"></div>
@@ -315,9 +347,11 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
     <button onclick="logout()" style="background:var(--surf);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:11px;cursor:pointer;color:var(--text2);font-weight:700">Out</button>
   </div>
   <div class="nav">
-    <button class="nav-btn on" onclick="showTeacherTab('t-scores',this)">⚽ Enter Scores</button>
+    <button class="nav-btn on" onclick="showTeacherTab('t-scores',this)">⚽ Scores</button>
     <button class="nav-btn" onclick="showTeacherTab('t-lb',this)">🏆 Leaderboard</button>
     <button class="nav-btn" onclick="showTeacherTab('t-manage',this)">⚙️ Matches</button>
+    <button class="nav-btn" onclick="openProjector()">📺 Projector</button>
+    <button class="nav-btn" onclick="exportCSV()" style="color:var(--green)">⬇️ CSV</button>
   </div>
   <div id="t-scores"><div id="teacher-matches"></div></div>
   <div id="t-lb" style="display:none"><div class="card"><div class="card-title">🏆 Full Leaderboard</div><div id="teacher-lb"></div></div></div>
@@ -341,6 +375,33 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
   </div>
 </div>
 
+<!-- PROJECTOR OVERLAY -->
+<div id="projector-overlay" style="display:none;position:fixed;inset:0;z-index:9000;background:linear-gradient(135deg,#064e3b,#0f172a);color:#fff;padding:40px;overflow-y:auto">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
+    <div>
+      <div style="font-size:14px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">🦎 Bobtails · World Cup 2026</div>
+      <div style="font-size:36px;font-weight:900">🏆 Class Leaderboard</div>
+    </div>
+    <button onclick="closeProjector()" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:14px;font-weight:800;padding:10px 20px;border-radius:20px;cursor:pointer">✕ Close</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <!-- Left: Leaderboard -->
+    <div>
+      <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">Points Standings</div>
+      <div id="proj-lb"></div>
+    </div>
+    <!-- Right: Next matches + live countdown -->
+    <div>
+      <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">⏰ Coming Up</div>
+      <div id="proj-next"></div>
+      <div style="margin-top:24px">
+        <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px">📊 Recent Results</div>
+        <div id="proj-results"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -352,7 +413,7 @@ const STUDENTS=['Yamen Aleassa','Sophia Brodziak','Seth Crawford','Zayn Cristode
   'Abhirami Mahadev','Astrid McGauchie','Tanner Mears','Oscar Samson',
   'Remy Scott','Bobbi-Lee Spencer','Luna-Sage Tingley','Iris Trowbridge',
   'Cynthia Valentin','Archer Watkins','Johnathan Xing',
-  'Mr P','Mr H'];
+  'Mr P','Mr H','Ms Adams'];
 
 const TEACHER_PASS='Bobtails2026';
 const KEY='pvs_wc26_v2';
@@ -615,6 +676,7 @@ function logout(){
 // ══════════════════════════════════════════════
 function renderStudentView(){
   renderMatches();renderProgress();renderStandings();
+  startCountdown();
 }
 
 // ── Progress ──
@@ -826,18 +888,20 @@ function renderStandingsGroup(group){
 
 // ── Tabs ──
 function showTab(tab,el){
-  ['predict','standings','results','lb'].forEach(t=>{
-    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
-    document.getElementById('nav-'+t).classList.toggle('on',t===tab);
+  ['predict','bracket','standings','results','lb'].forEach(t=>{
+    const panel=document.getElementById('tab-'+t);
+    const btn=document.getElementById('nav-'+t);
+    if(panel)panel.style.display=t===tab?'block':'none';
+    if(btn)btn.classList.toggle('on',t===tab);
   });
-  // Toggle sidebar panels
   const pf=document.getElementById('sidebar-predict-filters');
   const sf=document.getElementById('sidebar-standings-filters');
-  if(pf)pf.style.display=tab==='predict'?'block':'none';
+  if(pf)pf.style.display=(tab==='predict'||tab==='bracket')?'block':'none';
   if(sf)sf.style.display=tab==='standings'?'block':'none';
   if(tab==='results')renderResults();
   if(tab==='lb')renderLeaderboard();
   if(tab==='standings')renderStandings();
+  if(tab==='bracket')renderBracket();
 }
 
 // ── Results tab ──
@@ -1112,6 +1176,272 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 // ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
+
+// ══════════════════════════════════════════════
+//  KNOCKOUT BRACKET DATA
+// ══════════════════════════════════════════════
+const KO_ROUNDS=[
+  {id:'r32',label:'Round of 32',matches:[
+    {id:'k1',label:'M73',home:'2nd Group A',away:'2nd Group B',date:'2026-06-28'},
+    {id:'k2',label:'M74',home:'1st Group E',away:'Best 3rd',date:'2026-06-29'},
+    {id:'k3',label:'M75',home:'1st Group F',away:'2nd Group C',date:'2026-06-29'},
+    {id:'k4',label:'M76',home:'1st Group C',away:'2nd Group F',date:'2026-06-29'},
+    {id:'k5',label:'M77',home:'1st Group I',away:'Best 3rd',date:'2026-06-30'},
+    {id:'k6',label:'M78',home:'2nd Group E',away:'2nd Group I',date:'2026-06-30'},
+    {id:'k7',label:'M79',home:'1st Group A',away:'Best 3rd',date:'2026-06-30'},
+    {id:'k8',label:'M80',home:'1st Group L',away:'Best 3rd',date:'2026-07-01'},
+    {id:'k9',label:'M81',home:'1st Group D',away:'Best 3rd',date:'2026-07-01'},
+    {id:'k10',label:'M82',home:'1st Group G',away:'Best 3rd',date:'2026-07-01'},
+    {id:'k11',label:'M83',home:'2nd Group K',away:'2nd Group L',date:'2026-07-02'},
+    {id:'k12',label:'M84',home:'1st Group H',away:'2nd Group J',date:'2026-07-02'},
+    {id:'k13',label:'M85',home:'1st Group B',away:'Best 3rd',date:'2026-07-02'},
+    {id:'k14',label:'M86',home:'1st Group J',away:'2nd Group H',date:'2026-07-03'},
+    {id:'k15',label:'M87',home:'1st Group K',away:'Best 3rd',date:'2026-07-03'},
+    {id:'k16',label:'M88',home:'2nd Group D',away:'2nd Group G',date:'2026-07-03'},
+  ]},
+  {id:'r16',label:'Round of 16',matches:[
+    {id:'k17',label:'QF1',home:'Winner M73',away:'Winner M75',date:'2026-07-04'},
+    {id:'k18',label:'QF2',home:'Winner M74',away:'Winner M77',date:'2026-07-04'},
+    {id:'k19',label:'QF3',home:'Winner M76',away:'Winner M78',date:'2026-07-05'},
+    {id:'k20',label:'QF4',home:'Winner M79',away:'Winner M80',date:'2026-07-05'},
+    {id:'k21',label:'QF5',home:'Winner M83',away:'Winner M84',date:'2026-07-06'},
+    {id:'k22',label:'QF6',home:'Winner M81',away:'Winner M82',date:'2026-07-06'},
+    {id:'k23',label:'QF7',home:'Winner M86',away:'Winner M88',date:'2026-07-07'},
+    {id:'k24',label:'QF8',home:'Winner M85',away:'Winner M87',date:'2026-07-07'},
+  ]},
+  {id:'qf',label:'Quarter-Finals',matches:[
+    {id:'k25',label:'SF1',home:'Winner QF1',away:'Winner QF2',date:'2026-07-09'},
+    {id:'k26',label:'SF2',home:'Winner QF5',away:'Winner QF6',date:'2026-07-10'},
+    {id:'k27',label:'SF3',home:'Winner QF3',away:'Winner QF4',date:'2026-07-11'},
+    {id:'k28',label:'SF4',home:'Winner QF7',away:'Winner QF8',date:'2026-07-11'},
+  ]},
+  {id:'sf',label:'Semi-Finals',matches:[
+    {id:'k29',label:'Final A',home:'Winner SF1',away:'Winner SF2',date:'2026-07-14'},
+    {id:'k30',label:'Final B',home:'Winner SF3',away:'Winner SF4',date:'2026-07-15'},
+  ]},
+  {id:'final',label:'🏆 Final',matches:[
+    {id:'k31',label:'FINAL',home:'Winner Semi A',away:'Winner Semi B',date:'2026-07-19'},
+  ]},
+];
+
+// Store KO predictions separately: { matchId: {home:'Argentina',away:'France',pick:'home'|'away'} }
+function saveKOPred(matchId,pick,homeLabel,awayLabel){
+  if(!state.predictions[currentUser])state.predictions[currentUser]={};
+  state.predictions[currentUser]['ko_'+matchId]={pick,homeLabel,awayLabel};
+  saveLocalCache();
+  dbSavePred('ko_'+matchId,pick==='home'?1:0,pick==='away'?1:0).catch(()=>{});
+  showToast('🏆 Pick saved!');
+  renderBracket();
+}
+
+function renderBracket(){
+  const el=document.getElementById('bracket-container');if(!el)return;
+  const preds=(state.predictions[currentUser]||{});
+  let html='<div style="max-width:700px">';
+  html+='<div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border-radius:12px;padding:12px 16px;margin-bottom:16px;border:1px solid #fcd34d">';
+  html+='<div style="font-size:13px;font-weight:800;color:#92400e">🏆 Knockout Bracket Predictions</div>';
+  html+='<div style="font-size:11px;color:#b45309;margin-top:3px">Pick who you think will win each match. TBD slots will be filled as the tournament progresses.</div></div>';
+
+  KO_ROUNDS.forEach(round=>{
+    html+=`<div style="margin-bottom:20px"><div class="bracket-round-title">${round.label}</div>`;
+    round.matches.forEach(m=>{
+      const pred=preds['ko_'+m.id];
+      const r=state.results['ko_'+m.id];
+      // Determine if real teams are known (teacher may have updated labels)
+      const homeLabel=r?.homeLabel||pred?.homeLabel||m.home;
+      const awayLabel=r?.awayLabel||pred?.awayLabel||m.away;
+      const isTBD=m.home.startsWith('Winner')||m.home.startsWith('1st')||m.home.startsWith('2nd')||m.home.startsWith('Best');
+      const pickedHome=pred?.pick==='home';
+      const pickedAway=pred?.pick==='away';
+      const resultKnown=!!r?.winner;
+      const correct=resultKnown&&pred?.pick===r.winner;
+      let cardClass='bracket-match'+(pred?' picked':'')+(resultKnown?(correct?' result-correct':' result-wrong'):'');
+      html+=`<div class="${cardClass}">
+        <div class="bracket-team home" style="justify-content:flex-start">
+          <span>${homeLabel}</span>
+          ${pickedHome?'<span style="font-size:10px;background:var(--teal);color:#fff;border-radius:20px;padding:1px 6px;font-weight:800">Pick</span>':''}
+        </div>
+        <div class="bracket-center">
+          <div style="font-size:9px;color:var(--text3);font-weight:700;margin-bottom:4px">${m.label} · ${m.date.slice(5)}</div>
+          ${resultKnown?`<div class="bracket-result">${correct?'🎯':'❌'}</div>`
+            :isTBD?`<div style="font-size:10px;color:var(--text3)">Pick →</div>`
+            :`<div style="display:flex;gap:4px;justify-content:center">
+              <button onclick="saveKOPred('${m.id}','home','${homeLabel}','${awayLabel}')" style="font-size:10px;background:${pickedHome?'var(--teal)':'var(--surf3)'};color:${pickedHome?'#fff':'var(--text2)'};border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-weight:700">H</button>
+              <button onclick="saveKOPred('${m.id}','away','${homeLabel}','${awayLabel}')" style="font-size:10px;background:${pickedAway?'var(--teal)':'var(--surf3)'};color:${pickedAway?'#fff':'var(--text2)'};border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-weight:700">A</button>
+            </div>`}
+        </div>
+        <div class="bracket-team away" style="justify-content:flex-end">
+          ${pickedAway?'<span style="font-size:10px;background:var(--teal);color:#fff;border-radius:20px;padding:1px 6px;font-weight:800">Pick</span>':''}
+          <span>${awayLabel}</span>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════
+//  COUNTDOWN TO NEXT MATCH
+// ══════════════════════════════════════════════
+let _countdownTimer=null;
+
+function startCountdown(){
+  const wrap=document.getElementById('countdown-wrap');
+  if(!wrap)return;
+
+  // Find next unplayed match
+  const sorted=getSorted();
+  const next=sorted.find(m=>!state.results[m.id]);
+  if(!next){wrap.style.display='none';return;}
+
+  // Parse the match datetime (ET) — convert to approximate UTC
+  const d=next.date; // "2026-06-19"
+  const t=next.time||'12:00 PM ET';
+  const tp=t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  let h=tp?+tp[1]:12,mn=tp?+tp[2]:0;
+  if(tp&&tp[3].toUpperCase()==='PM'&&h!==12)h+=12;
+  if(tp&&tp[3].toUpperCase()==='AM'&&h===12)h=0;
+  // ET = UTC-4 in summer. Add 4 hours to convert ET→UTC
+  const matchUTC=new Date(`${d}T${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}:00-04:00`);
+
+  document.getElementById('countdown-match').textContent=`${next.homeFlag} ${next.home} vs ${next.awayFlag} ${next.away}`;
+  wrap.style.display='block';
+
+  clearInterval(_countdownTimer);
+  function tick(){
+    const now=Date.now();
+    const diff=matchUTC-now;
+    if(diff<=0){
+      document.getElementById('cd-d').textContent='0';
+      document.getElementById('cd-h').textContent='0';
+      document.getElementById('cd-m').textContent='0';
+      document.getElementById('cd-s').textContent='0';
+      clearInterval(_countdownTimer);
+      return;
+    }
+    const days=Math.floor(diff/86400000);
+    const hrs=Math.floor((diff%86400000)/3600000);
+    const mins=Math.floor((diff%3600000)/60000);
+    const secs=Math.floor((diff%60000)/1000);
+    document.getElementById('cd-d').textContent=days;
+    document.getElementById('cd-h').textContent=hrs;
+    document.getElementById('cd-m').textContent=mins;
+    document.getElementById('cd-s').textContent=secs;
+  }
+  tick();
+  _countdownTimer=setInterval(tick,1000);
+}
+
+// ══════════════════════════════════════════════
+//  PROJECTOR MODE
+// ══════════════════════════════════════════════
+function openProjector(){
+  const ov=document.getElementById('projector-overlay');
+  if(!ov)return;
+  ov.style.display='block';
+  renderProjectorLb();
+  renderProjectorNext();
+  renderProjectorResults();
+}
+function closeProjector(){
+  const ov=document.getElementById('projector-overlay');
+  if(ov)ov.style.display='none';
+}
+
+function renderProjectorLb(){
+  const el=document.getElementById('proj-lb');if(!el)return;
+  const rows=STUDENTS.map(n=>({name:n,...calcPoints(n)})).sort((a,b)=>b.total-a.total||b.exact-a.exact);
+  const medals=['🥇','🥈','🥉'];
+  el.innerHTML=rows.map((r,i)=>
+    `<div class="proj-lb-row ${i<3?'top3':''}">
+      <div style="font-size:${i<3?24:18}px;width:36px">${medals[i]||'#'+(i+1)}</div>
+      <div style="flex:1;font-weight:700;font-size:${i<3?16:13}px">${r.name}</div>
+      ${r.exact?`<span style="font-size:11px;background:rgba(217,119,6,.3);color:#fcd34d;border-radius:20px;padding:2px 8px;font-weight:800">🎯${r.exact}</span>`:''}
+      <div style="font-size:${i<3?22:16}px;font-weight:900;color:${i===0?'#fcd34d':i===1?'#e2e8f0':i===2?'#f97316':'rgba(255,255,255,.7)'}">${r.total}<span style="font-size:11px;font-weight:600">pts</span></div>
+    </div>`
+  ).join('');
+}
+
+function renderProjectorNext(){
+  const el=document.getElementById('proj-next');if(!el)return;
+  const upcoming=getSorted().filter(m=>!state.results[m.id]).slice(0,4);
+  if(!upcoming.length){el.innerHTML='<div style="color:rgba(255,255,255,.4);font-size:13px">No upcoming matches.</div>';return;}
+  el.innerHTML=upcoming.map(m=>
+    `<div class="proj-match-card">
+      <div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${m.group} · ${m.date.slice(5)} · ${m.time||''}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:800">
+        <span>${m.homeFlag} ${m.home}</span>
+        <span style="color:rgba(255,255,255,.3);font-size:12px">vs</span>
+        <span>${m.away} ${m.awayFlag}</span>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function renderProjectorResults(){
+  const el=document.getElementById('proj-results');if(!el)return;
+  const recent=getSorted().filter(m=>state.results[m.id]).slice(-4).reverse();
+  if(!recent.length){el.innerHTML='<div style="color:rgba(255,255,255,.4);font-size:13px">No results yet.</div>';return;}
+  el.innerHTML=recent.map(m=>{
+    const r=state.results[m.id];
+    return`<div class="proj-match-card">
+      <div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${m.group} · FT</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:800">
+        <span>${m.homeFlag} ${m.home}</span>
+        <span style="font-size:22px;font-weight:900;color:#fcd34d">${r.homeScore}–${r.awayScore}</span>
+        <span>${m.away} ${m.awayFlag}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Close projector with Escape key
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeProjector();});
+
+// ══════════════════════════════════════════════
+//  CSV EXPORT
+// ══════════════════════════════════════════════
+function exportCSV(){
+  const played=state.matches.filter(m=>state.results[m.id]);
+  if(!played.length){showToast('No results to export yet!');return;}
+
+  let csv='Student,Match,Group,Home,Away,Your Prediction,Real Score,Result,Points\n';
+  STUDENTS.forEach(name=>{
+    played.forEach(m=>{
+      const p=(state.predictions[name]||{})[m.id];
+      const r=state.results[m.id];
+      const pred=p?`${p.homeScore}-${p.awayScore}`:'No prediction';
+      const real=`${r.homeScore}-${r.awayScore}`;
+      let result='No prediction',pts=0;
+      if(p){
+        const exact=p.homeScore===r.homeScore&&p.awayScore===r.awayScore;
+        const myW=p.homeScore>p.awayScore?'h':p.homeScore<p.awayScore?'a':'d';
+        const rW=r.homeScore>r.awayScore?'h':r.homeScore<r.awayScore?'a':'d';
+        if(exact){result='Exact score';pts=3;}
+        else if(myW===rW){result='Correct result';pts=1;}
+        else{result='Wrong';pts=0;}
+      }
+      csv+=`"${name}","${m.home} vs ${m.away}","${m.group}","${m.home}","${m.away}","${pred}","${real}","${result}",${pts}\n`;
+    });
+  });
+
+  // Summary rows
+  csv+='\nSUMMARY\nStudent,Total Points,Exact Scores,Correct Results\n';
+  STUDENTS.forEach(name=>{
+    const p=calcPoints(name);
+    csv+=`"${name}",${p.total},${p.exact},${p.correct}\n`;
+  });
+
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`WorldCup2026_Bobtails_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('⬇️ CSV downloaded!');
+}
+
 loadState();
 buildStudentGrid();
 </script>
