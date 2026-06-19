@@ -424,58 +424,89 @@ async function sbReq(method,table,opts={}){
   const{filter,body,prefer}=opts;
   try{
     const res=await fetch(SB_FN,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({method,table,filter,body,prefer}),
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        method,table,
+        filter:filter||undefined,  // don't send empty string
+        body,prefer
+      }),
     });
-    const t=await res.text();
-    if(!res.ok)throw new Error(t||'HTTP '+res.status);
-    return t?JSON.parse(t):null;
-  }catch(e){console.warn('sbReq',method,table,e.message);return null;}
+    const text=await res.text();
+    if(!res.ok){
+      console.error('Supabase error',method,table,res.status,text);
+      showToast('⚠️ Database error — check console');
+      return null;
+    }
+    return text?JSON.parse(text):null;
+  }catch(e){
+    console.error('sbReq failed',method,table,e.message);
+    return null;
+  }
 }
-const sbGet   =(t,f)  =>sbReq('GET',   t,{filter:f});
-const sbUpsert=(t,b)  =>sbReq('POST',  t,{body:b,prefer:'resolution=merge-duplicates,return=minimal'});
-const sbPatch =(t,f,b)=>sbReq('PATCH', t,{filter:f,body:b,prefer:'return=minimal'});
 
-// Save this student's predictions for one match
+// GET rows — filter is optional e.g. 'student=eq.Sophia'
+const sbGet=(table,filter)=>sbReq('GET',table,{filter:filter||undefined});
+
+// UPSERT — POST with merge-duplicates (requires id field as primary key)
+const sbUpsert=(table,body)=>sbReq('POST',table,{
+  body,
+  prefer:'resolution=merge-duplicates,return=minimal'
+});
+
+// PATCH — update matching rows
+const sbPatch=(table,filter,body)=>sbReq('PATCH',table,{
+  filter,body,prefer:'return=minimal'
+});
+
+// Save one student's prediction for one match
 async function dbSavePred(matchId,homeScore,awayScore){
   if(!currentUser)return;
   return sbUpsert('wc_predictions',{
     id:currentUser+'_'+matchId,
-    student:currentUser,match_id:matchId,
-    home_score:homeScore,away_score:awayScore,
+    student:currentUser,
+    match_id:matchId,
+    home_score:homeScore,
+    away_score:awayScore,
     updated_at:new Date().toISOString()
   });
 }
 
-// Load all predictions for this student from Supabase
+// Load this student's predictions
 async function dbLoadPreds(){
   if(!currentUser)return{};
   const rows=await sbGet('wc_predictions','student=eq.'+encodeURIComponent(currentUser));
   const out={};
-  (rows||[]).forEach(r=>{out[r.match_id]={homeScore:r.home_score,awayScore:r.away_score};});
+  (rows||[]).forEach(r=>{
+    out[r.match_id]={homeScore:r.home_score,awayScore:r.away_score};
+  });
   return out;
 }
 
 // Save a match result (teacher only)
 async function dbSaveResult(matchId,homeScore,awayScore){
   return sbUpsert('wc_results',{
-    id:matchId,match_id:matchId,
-    home_score:homeScore,away_score:awayScore,
+    id:matchId,
+    match_id:matchId,
+    home_score:homeScore,
+    away_score:awayScore,
     updated_at:new Date().toISOString()
   });
 }
 
-// Load all match results from Supabase
+// Load all match results
 async function dbLoadResults(){
-  const rows=await sbGet('wc_results','');
+  const rows=await sbGet('wc_results');  // no filter = all rows
   const out={};
-  (rows||[]).forEach(r=>{out[r.match_id]={homeScore:r.home_score,awayScore:r.away_score};});
+  (rows||[]).forEach(r=>{
+    out[r.match_id]={homeScore:r.home_score,awayScore:r.away_score};
+  });
   return out;
 }
 
-// Load all predictions for the class leaderboard (teacher view + class tab)
+// Load ALL students' predictions (for class leaderboard + teacher view)
 async function dbLoadAllPreds(){
-  const rows=await sbGet('wc_predictions','');
+  const rows=await sbGet('wc_predictions');  // no filter = all rows
   const out={};
   (rows||[]).forEach(r=>{
     if(!out[r.student])out[r.student]={};
@@ -484,8 +515,37 @@ async function dbLoadAllPreds(){
   return out;
 }
 
-// ══════════════════════════════════════════════
-//  FIXTURES
+// Save a knockout bracket pick (stored as a string in a separate field)
+async function dbSaveKOPick(matchId,pick,homeLabel,awayLabel){
+  if(!currentUser)return;
+  // Store as a text prediction in wc_predictions with special marker
+  return sbUpsert('wc_predictions',{
+    id:currentUser+'_ko_'+matchId,
+    student:currentUser,
+    match_id:'ko_'+matchId,
+    home_score:pick==='home'?1:0,
+    away_score:pick==='away'?1:0,
+    updated_at:new Date().toISOString()
+  });
+}
+
+// ── DB connection test (call testDB() from browser console) ──
+async function testDB(){
+  console.log('Testing Supabase connection...');
+  // 1. Test GET wc_results
+  const r=await sbGet('wc_results');
+  console.log('wc_results GET:',r===null?'FAILED (null)':'OK, rows: '+JSON.stringify(r).slice(0,100));
+  // 2. Test upsert
+  const w=await sbUpsert('wc_predictions',{
+    id:'__test__',student:'__test__',match_id:'__test__',
+    home_score:0,away_score:0,updated_at:new Date().toISOString()
+  });
+  console.log('wc_predictions UPSERT:',w===null?'FAILED':'OK');
+  // 3. Clean up test row
+  await sbReq('DELETE','wc_predictions',{filter:'id=eq.__test__'});
+  console.log('Done. Check above for FAILED messages.');
+  showToast(r!==null?'✅ DB connected!':'❌ DB failed — check console');
+}
 // ══════════════════════════════════════════════
 const DEFAULT_MATCHES=[
   {id:'m1',group:'Group A',home:'Mexico',homeFlag:'🇲🇽',away:'South Africa',awayFlag:'🇿🇦',date:'2026-06-11',time:'3:00 AM AWST',venue:'Mexico City'},
@@ -1229,7 +1289,7 @@ function saveKOPred(matchId,pick,homeLabel,awayLabel){
   if(!state.predictions[currentUser])state.predictions[currentUser]={};
   state.predictions[currentUser]['ko_'+matchId]={pick,homeLabel,awayLabel};
   saveLocalCache();
-  dbSavePred('ko_'+matchId,pick==='home'?1:0,pick==='away'?1:0).catch(()=>{});
+  dbSaveKOPick(matchId,pick,homeLabel,awayLabel).catch(()=>{});
   showToast('🏆 Pick saved!');
   renderBracket();
 }
