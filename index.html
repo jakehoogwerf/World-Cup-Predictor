@@ -645,12 +645,13 @@ function getSorted(){return [].concat(state.matches).sort(function(a,b){return s
 // ══════════════════════════════════════════════
 function buildStudentGrid(){
   document.getElementById('student-grid').innerHTML=STUDENTS.map(function(n){
-    return '<button class="student-btn" onclick="selectStudent(this,\''+n.replace(/'/g,"\\'")+'\'">'+n+'</button>';
+    return '<button class="student-btn" data-name="'+n+'" onclick="selectStudent(this)">'+n+'</button>';
   }).join('');
 }
-function selectStudent(el,name){
+function selectStudent(el){
   document.querySelectorAll('.student-btn').forEach(function(b){b.classList.remove('active');});
-  el.classList.add('active');currentUser=name;
+  el.classList.add('active');
+  currentUser=el.getAttribute('data-name');
 }
 function studentLogin(){
   if(!currentUser){document.getElementById('login-err').style.display='block';return;}
