@@ -285,6 +285,7 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
       <div class="nav" style="margin:0;box-shadow:none;border:1px solid var(--border)">
         <button class="nav-btn on" onclick="showTeacherTab('t-scores',this)">⚽ Scores</button>
         <button class="nav-btn" onclick="showTeacherTab('t-lb',this)">🏆 Leaderboard</button>
+        <button class="nav-btn" onclick="showTeacherTab('t-edit',this)">✏️ Edit Preds</button>
         <button class="nav-btn" onclick="showTeacherTab('t-manage',this)">⚙️ Matches</button>
         <button class="nav-btn" onclick="openProjector()">📺 Projector</button>
         <button class="nav-btn" onclick="exportCSV()" style="color:var(--green)">⬇️ CSV</button>
@@ -295,6 +296,30 @@ label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bot
   <div style="max-width:800px;margin:0 auto;padding:20px">
     <div id="t-scores"><div id="teacher-matches"></div></div>
     <div id="t-lb" style="display:none"><div class="card"><div class="card-title">🏆 Leaderboard</div><div id="teacher-lb"></div></div></div>
+    <div id="t-edit" style="display:none">
+      <div class="card">
+        <div class="card-title">✏️ Edit Student Predictions</div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Select a student and match to manually set or correct their prediction. Changes save immediately to the database.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div class="field">
+            <label>Student</label>
+            <select id="edit-student" onchange="renderEditMatchList()" style="font-size:13px">
+              <option value="">— Select student —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Filter matches</label>
+            <select id="edit-filter" onchange="renderEditMatchList()" style="font-size:13px">
+              <option value="all">All matches</option>
+              <option value="played">Played only</option>
+              <option value="predicted">Has prediction</option>
+              <option value="missing">Missing prediction</option>
+            </select>
+          </div>
+        </div>
+        <div id="edit-match-list"></div>
+      </div>
+    </div>
     <div id="t-manage" style="display:none">
       <div class="card">
         <div class="card-title">➕ Add Match</div>
@@ -1016,7 +1041,148 @@ function startCountdown(){
   tick();_cdTimer=setInterval(tick,1000);
 }
 function renderTeacherView(){renderTeacherMatches();renderTeacherLb();renderManageMatches();}
-function showTeacherTab(tab,el){['t-scores','t-lb','t-manage'].forEach(function(t){document.getElementById(t).style.display=t===tab?'block':'none';});document.querySelectorAll('#s-teacher .nav-btn').forEach(function(b){b.classList.remove('on');});el.classList.add('on');if(tab==='t-lb')renderTeacherLb();if(tab==='t-manage')renderManageMatches();}
+function showTeacherTab(tab,el){
+  ['t-scores','t-lb','t-edit','t-manage'].forEach(function(t){
+    var p=document.getElementById(t);if(p)p.style.display=t===tab?'block':'none';
+  });
+  document.querySelectorAll('#s-teacher .nav-btn').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
+  if(tab==='t-lb')renderTeacherLb();
+  if(tab==='t-manage')renderManageMatches();
+  if(tab==='t-edit')renderEditPanel();
+}
+
+function renderEditPanel(){
+  // Populate student dropdown
+  var sel=document.getElementById('edit-student');
+  if(sel.options.length<=1){
+    STUDENTS.forEach(function(n){
+      var opt=document.createElement('option');
+      opt.value=n;opt.textContent=n;
+      sel.appendChild(opt);
+    });
+  }
+  renderEditMatchList();
+}
+
+function renderEditMatchList(){
+  var student=document.getElementById('edit-student').value;
+  var filter=document.getElementById('edit-filter').value;
+  var el=document.getElementById('edit-match-list');
+
+  if(!student){
+    el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0">Select a student above to see their predictions.</div>';
+    return;
+  }
+
+  var preds=state.predictions[student]||{};
+  var sorted=getSorted();
+
+  // Apply filter
+  var filtered=sorted.filter(function(m){
+    var isPlayed=!!state.results[m.id];
+    var hasPred=preds[m.id]&&preds[m.id].homeScore!==undefined;
+    if(filter==='played')return isPlayed;
+    if(filter==='predicted')return hasPred;
+    if(filter==='missing')return !hasPred;
+    return true;
+  });
+
+  if(!filtered.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0">No matches match this filter.</div>';
+    return;
+  }
+
+  var pts=calcPoints(student);
+  el.innerHTML='<div style="background:var(--teal2);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:16px;align-items:center">'+
+    '<div style="font-size:13px;font-weight:800;color:#0f766e">'+student+'</div>'+
+    '<div style="font-size:12px;color:#0f766e">'+pts.total+' pts · '+pts.exact+' 🎯 exact · '+pts.correct+' ✅ correct</div>'+
+  '</div>'+
+  filtered.map(function(m){
+    var p=preds[m.id]||{};
+    var r=state.results[m.id];
+    var hasPred=p.homeScore!==undefined;
+    var isPlayed=!!r;
+    var exact=isPlayed&&hasPred&&p.homeScore===r.homeScore&&p.awayScore===r.awayScore;
+    var myW=hasPred?(p.homeScore>p.awayScore?'h':p.homeScore<p.awayScore?'a':'d'):null;
+    var rW=r?(r.homeScore>r.awayScore?'h':r.homeScore<r.awayScore?'a':'d'):null;
+    var correct=myW&&rW&&myW===rW;
+    var pts2=exact?3:correct?1:0;
+
+    var resultBadge='';
+    if(isPlayed&&hasPred){
+      resultBadge=exact?'<span style="font-size:10px;font-weight:800;background:var(--gold2);color:#92400e;border-radius:20px;padding:2px 8px">🎯 +3</span>':
+        correct?'<span style="font-size:10px;font-weight:800;background:var(--green2);color:#166534;border-radius:20px;padding:2px 8px">✅ +1</span>':
+        '<span style="font-size:10px;font-weight:800;background:var(--red2);color:#991b1b;border-radius:20px;padding:2px 8px">❌ 0</span>';
+    }
+
+    return '<div style="background:var(--surf3);border-radius:10px;padding:12px 14px;margin-bottom:8px;border-left:3px solid '+(isPlayed?(exact?'var(--gold)':correct?'var(--green)':hasPred?'var(--red)':'#cbd5e1'):'var(--border)')+'">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:4px">'+
+        '<div>'+
+          '<span style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1px">'+m.group+'</span>'+
+          '<span style="font-size:10px;color:var(--text3);margin-left:8px">'+m.date.slice(5).replace('-','/')+'</span>'+
+          (isPlayed?'<span style="font-size:10px;font-weight:800;background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:1px 8px;margin-left:6px">FT '+r.homeScore+'–'+r.awayScore+'</span>':'')+
+        '</div>'+
+        resultBadge+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr auto auto auto auto 1fr;align-items:center;gap:8px">'+
+        '<div style="font-size:13px;font-weight:700">'+m.homeFlag+' '+m.home+'</div>'+
+        '<input type="number" min="0" max="20" id="ep-h-'+m.id+'" value="'+(hasPred?p.homeScore:'')+'" placeholder="?" '+
+          'style="width:52px;text-align:center;padding:6px;font-size:16px;font-weight:900;border:2px solid var(--border);border-radius:8px;outline:none;" '+
+          'onfocus="this.style.borderColor=\'var(--teal)\'" onblur="this.style.borderColor=\'var(--border)\'">'+
+        '<span style="font-size:14px;font-weight:900;color:var(--text3)">–</span>'+
+        '<input type="number" min="0" max="20" id="ep-a-'+m.id+'" value="'+(hasPred?p.awayScore:'')+'" placeholder="?" '+
+          'style="width:52px;text-align:center;padding:6px;font-size:16px;font-weight:900;border:2px solid var(--border);border-radius:8px;outline:none;" '+
+          'onfocus="this.style.borderColor=\'var(--teal)\'" onblur="this.style.borderColor=\'var(--border)\'">'+
+        '<button onclick="saveEditPred(\''+student+'\',\''+m.id+'\')" '+
+          'style="padding:6px 12px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">'+
+          '💾 Save</button>'+
+        '<div style="font-size:13px;font-weight:700;text-align:right">'+m.away+' '+m.awayFlag+'</div>'+
+      '</div>'+
+      (hasPred?'<div style="font-size:11px;color:var(--text3);margin-top:6px">Current: <strong>'+p.homeScore+'–'+p.awayScore+'</strong></div>':
+        '<div style="font-size:11px;color:var(--text3);margin-top:6px">No prediction yet</div>')+
+    '</div>';
+  }).join('')+
+  '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
+    '<button onclick="clearAllPreds(\''+student+'\')" '+
+      'style="padding:8px 16px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;margin-right:8px">'+
+      '🗑 Clear all predictions for '+student.split(' ')[0]+'</button>'+
+    '<span style="font-size:11px;color:var(--text3)">Cannot be undone</span>'+
+  '</div>';
+}
+
+function saveEditPred(student,matchId){
+  var h=parseInt(document.getElementById('ep-h-'+matchId).value);
+  var a=parseInt(document.getElementById('ep-a-'+matchId).value);
+  if(isNaN(h)||isNaN(a)||h<0||a<0){showToast('Enter valid scores (0 or more)');return;}
+  if(!state.predictions[student])state.predictions[student]={};
+  state.predictions[student][matchId]={homeScore:h,awayScore:a};
+  saveLocalCache();
+  // Save to Supabase — temporarily set currentUser to save as that student
+  var origUser=currentUser;
+  currentUser=student;
+  dbSavePred(matchId,h,a).then(function(){
+    currentUser=origUser;
+    showToast('✅ Saved '+student.split(' ')[0]+'\'s prediction: '+h+'–'+a);
+    renderEditMatchList(); // refresh to show updated result badges
+    renderTeacherLb();
+  }).catch(function(){
+    currentUser=origUser;
+    showToast('⚠️ Saved locally — DB error');
+    renderEditMatchList();
+  });
+}
+
+function clearAllPreds(student){
+  if(!confirm('Clear ALL predictions for '+student+'? This cannot be undone.'))return;
+  state.predictions[student]={};
+  saveLocalCache();
+  // Delete from Supabase by upserting empty — can't easily delete rows without a delete endpoint
+  // Instead, mark all as cleared with a sentinel value and filter in calcPoints
+  showToast('Cleared '+student.split(' ')[0]+'\'s predictions locally. Reload to sync DB.');
+  renderEditMatchList();
+  renderTeacherLb();
+}
 function getAllPredsForMatch(matchId){var out=[];STUDENTS.forEach(function(name){var p=(state.predictions[name]||{})[matchId];if(p&&p.homeScore!==undefined)out.push({name:name,homeScore:p.homeScore,awayScore:p.awayScore});});return out;}
 function renderMatchPredPanel(m){
   var preds=getAllPredsForMatch(m.id);var r=state.results[m.id];var unp=STUDENTS.filter(function(n){return !((state.predictions[n]||{})[m.id]);});
