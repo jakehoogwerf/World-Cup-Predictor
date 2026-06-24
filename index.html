@@ -818,6 +818,17 @@ function renderMatches(){
 
     var lockMsg=isPlayed?'<div class="locked-msg">🔒 Match played — prediction locked</div>':isPredLocked?'<div class="locked-msg">🔒 Predictions closed 10 mins before kick-off</div>':'';
 
+    // Class predictions panel — shown on locked/played matches
+    var classPreds='';
+    if(isLocked){
+      classPreds='<div style="margin-top:10px">'+
+        '<button onclick="toggleClassPreds(\''+m.id+'\')" style="width:100%;padding:7px;background:var(--surf3);border:1.5px solid var(--border);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:6px" id="cp-btn-'+m.id+'">'+
+          '👀 See what the class predicted'+
+        '</button>'+
+        '<div id="cp-panel-'+m.id+'" style="display:none;margin-top:8px"></div>'+
+      '</div>';
+    }
+
     html+='<div class="match-card" id="card-'+m.id+'" data-group="'+m.group+'" data-played="'+isPlayed+'" data-locked="'+isLocked+'" data-home="'+m.home.toLowerCase()+'" data-away="'+m.away.toLowerCase()+'" style="border-left-color:'+bc+'">'+
       '<div class="match-meta">'+
         '<div><span class="match-group-badge">'+m.group+'</span><span class="match-date-badge" style="margin-left:8px">'+(m.date||'').slice(5).replace('-','/')+'  '+m.time+'</span></div>'+
@@ -828,7 +839,7 @@ function renderMatches(){
         middle+
         '<div class="team-block"><span class="team-flag">'+m.awayFlag+'</span><div class="team-name">'+m.away+'</div></div>'+
       '</div>'+
-      input+cdHtml+fb+lockMsg+
+      input+cdHtml+fb+lockMsg+classPreds+
     '</div>';
   });
 
@@ -838,6 +849,83 @@ function renderMatches(){
     c.style.display=(c.dataset.played==='true'||c.dataset.locked==='true')?'none':'block';
   });
   var up=document.getElementById('up-next-marker');if(up)up.style.display='flex';
+}
+
+function toggleClassPreds(matchId){
+  var panel=document.getElementById('cp-panel-'+matchId);
+  var btn=document.getElementById('cp-btn-'+matchId);
+  if(!panel)return;
+  var open=panel.style.display==='none';
+  panel.style.display=open?'block':'none';
+  if(btn)btn.innerHTML=open?'\u{1F53C} Hide class predictions':'\u{1F440} See what the class predicted';
+  if(open)panel.innerHTML=renderClassPredsPanel(matchId);
+}
+
+function renderClassPredsPanel(matchId){
+  var m=state.matches.find(function(x){return x.id===matchId;});
+  if(!m)return'';
+  var r=state.results[matchId];
+  var rows=[];
+  STUDENTS.forEach(function(name){
+    var p=(state.predictions[name]||{})[matchId];
+    rows.push({name:name,pred:p||null});
+  });
+  var scoreGroups={};
+  var noPred=[];
+  rows.forEach(function(row){
+    if(!row.pred||row.pred.homeScore===undefined){noPred.push(row.name);}
+    else{
+      var key=row.pred.homeScore+'-'+row.pred.awayScore;
+      if(!scoreGroups[key])scoreGroups[key]={h:row.pred.homeScore,a:row.pred.awayScore,names:[]};
+      scoreGroups[key].names.push(row.name);
+    }
+  });
+  var groups=Object.values(scoreGroups).sort(function(a,b){return b.names.length-a.names.length;});
+  var tally={home:0,draw:0,away:0};
+  groups.forEach(function(g){if(g.h>g.a)tally.home+=g.names.length;else if(g.h<g.a)tally.away+=g.names.length;else tally.draw+=g.names.length;});
+  var total=rows.length-noPred.length;
+  var html='<div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">';
+  if(total>0){
+    var hp=Math.round(tally.home/total*100);
+    var dp=Math.round(tally.draw/total*100);
+    var ap=100-hp-dp;
+    html+='<div style="margin-bottom:10px">'+
+      '<div style="display:flex;height:8px;border-radius:20px;overflow:hidden;gap:2px;margin-bottom:6px">'+
+        (hp?'<div style="flex:'+hp+';background:var(--blue);border-radius:4px"></div>':'')+
+        (dp?'<div style="flex:'+dp+';background:var(--gold);border-radius:4px"></div>':'')+
+        (ap?'<div style="flex:'+ap+';background:var(--red);border-radius:4px"></div>':'')+
+      '</div>'+
+      '<div style="display:flex;gap:12px;font-size:10px;font-weight:700">'+
+        '<span style="color:var(--blue)">'+m.homeFlag+' '+hp+'%</span>'+
+        '<span style="color:var(--gold)">Draw '+dp+'%</span>'+
+        '<span style="color:var(--red)">'+ap+'% '+m.awayFlag+'</span>'+
+      '</div></div>';
+  }
+  html+='<div style="display:flex;flex-direction:column;gap:6px">';
+  groups.forEach(function(g){
+    var exact=r&&g.h===r.homeScore&&g.a===r.awayScore;
+    var mW=g.h>g.a?'h':g.h<g.a?'a':'d';
+    var rW=r?(r.homeScore>r.awayScore?'h':r.homeScore<r.awayScore?'a':'d'):null;
+    var ok=rW&&mW===rW;
+    var bg=r?(exact?'var(--gold2)':ok?'var(--green2)':'var(--red2)'):'var(--surf)';
+    var badge=r?(exact?'\ud83c\udfaf +3pts':ok?'\u2705 +1pt':'\u274c 0pts'):'';
+    var myPred=(state.predictions[currentUser]||{})[matchId];
+    var isMe=myPred&&myPred.homeScore===g.h&&myPred.awayScore===g.a;
+    html+='<div style="background:'+bg+';border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:10px;border:1.5px solid '+(isMe?'var(--teal)':'transparent')+'">'+
+      '<div style="font-size:20px;font-weight:900;min-width:52px;text-align:center;background:rgba(0,0,0,.07);border-radius:6px;padding:3px 6px">'+g.h+'-'+g.a+'</div>'+
+      '<div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--text2)">'+
+        g.names.map(function(n){return n===currentUser?'<strong style="color:var(--teal)">'+n+' (you)</strong>':n;}).join(', ')+
+      '</div>'+
+      '<div style="font-size:10px;color:var(--text3);margin-top:2px">'+g.names.length+' student'+(g.names.length!==1?'s':'')+' picked this</div></div>'+
+      (badge?'<div style="font-size:11px;font-weight:800;white-space:nowrap">'+badge+'</div>':'')+
+    '</div>';
+  });
+  if(noPred.length){
+    html+='<div style="background:var(--surf3);border-radius:8px;padding:8px 10px;border:1px dashed var(--border)">'+
+      '<div style="font-size:11px;color:var(--text3)"><strong>No prediction:</strong> '+noPred.join(', ')+'</div></div>';
+  }
+  html+='</div></div>';
+  return html;
 }
 
 function adjustScore(matchId,side,delta){
